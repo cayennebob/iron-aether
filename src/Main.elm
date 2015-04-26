@@ -19,6 +19,10 @@ type alias Game = { player : Character
                   , seedInitialized : Bool
                   }
 
+type Attack = BasicAttack
+
+type CombatState = InProgress | Won | Lost
+
 initCharacter : Int -> Int -> Int -> Character
 initCharacter hp attack defense =
     { totalHP = hp
@@ -34,9 +38,16 @@ initGame = { player = initCharacter 100 10 10
            , seedInitialized = False
            }
 
--- UPDATE
+alive : Character -> Bool
+alive char =
+    char.currentHP > 0
 
-type Attack = BasicAttack
+combatState model =
+    if | not (alive model.player) -> Lost
+       | not (alive model.enemy) -> Won
+       | otherwise -> InProgress
+
+-- UPDATE
 
 update : (Time, Attack) -> Game -> Game
 update (time, attack) model =
@@ -46,10 +57,12 @@ update (time, attack) model =
 
 doAttack : Random.Seed -> Attack -> Character -> Character -> (Character, Random.Seed)
 doAttack seed attack attacker defender =
-    let (roll, newSeed) = Dice.basicRoll seed
-        damage = max 0 (roll + attacker.attack - defender.defense + 5)
-        updatedHP = defender.currentHP - damage
-    in ({ defender | currentHP <- updatedHP }, newSeed)
+    if alive attacker
+       then let (roll, newSeed) = Dice.basicRoll seed
+                damage = max 0 (roll + attacker.attack - defender.defense + 5)
+                updatedHP = defender.currentHP - damage
+            in ({ defender | currentHP <- updatedHP }, newSeed)
+       else (defender, seed)
 
 doPlayerAttack : Attack -> Game -> Game
 doPlayerAttack attack model =
@@ -85,6 +98,7 @@ main =
 view : Game -> Element
 view game =
     Element.flow Element.down
-        [ Element.show game
+        [ Element.show (combatState game)
+        , Element.show game
         , Input.button (Signal.message attack.address BasicAttack) "Attack"
         ]
