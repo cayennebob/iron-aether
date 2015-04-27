@@ -50,19 +50,19 @@ alive char =
     char.currentHP > 0
 
 combatState : Game -> CombatState
-combatState model =
-    if | not (alive model.player) -> Lost
-       | not (alive model.enemy) -> Won
+combatState game =
+    if | not (alive game.player) -> Lost
+       | not (alive game.enemy) -> Won
        | otherwise -> InProgress
 
 -- UPDATE
 
 update : (Time, Attack) -> Game -> Game
-update (time, attack) model =
-    model |> Dice.ensureSeed time
-          |> doPlayerAttack attack
-          |> doEnemyAttack
-          |> trimEvents
+update (time, attack) game =
+    game |> Dice.ensureSeed time
+         |> doPlayerAttack attack
+         |> doEnemyAttack
+         |> trimEvents
 
 doAttack : Random.Seed -> Attack -> Character -> Character -> (String, Character, Random.Seed)
 doAttack seed attack attacker defender =
@@ -74,26 +74,26 @@ doAttack seed attack attacker defender =
     in (message, { defender | currentHP <- updatedHP }, newSeed)
 
 doPlayerAttack : Attack -> Game -> Game
-doPlayerAttack attack model =
-    if alive model.player
+doPlayerAttack attack game =
+    if alive game.player
        then
             let (message, updatedEnemy, newSeed) =
-                    doAttack model.seed attack model.player model.enemy
-            in { model | enemy <- updatedEnemy
-                       , events <- message :: model.events
-                       , seed <- newSeed }
-       else model
+                    doAttack game.seed attack game.player game.enemy
+            in { game | enemy <- updatedEnemy
+                      , events <- message :: game.events
+                      , seed <- newSeed }
+       else game
 
 doEnemyAttack : Game -> Game
-doEnemyAttack model =
-    if alive model.enemy
+doEnemyAttack game =
+    if alive game.enemy
         then
             let (message, updatedPlayer, newSeed) =
-                    doAttack model.seed BasicAttack model.enemy model.player
-            in { model | player <- updatedPlayer
-                       , events <- message :: model.events
-                       , seed <- newSeed }
-        else model
+                    doAttack game.seed BasicAttack game.enemy game.player
+            in { game | player <- updatedPlayer
+                      , events <- message :: game.events
+                      , seed <- newSeed }
+        else game
 
 trimEvents : Game -> Game
 trimEvents game =
