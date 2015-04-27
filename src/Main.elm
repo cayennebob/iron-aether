@@ -13,10 +13,12 @@ type alias Character = { totalHP : Int
                        , attack : Int
                        , defense : Int
                        , friendly : Bool
+                       , name : String
                        }
 
 type alias Game = { player : Character
                   , enemy : Character
+                  , events : List String
                   , seed : Random.Seed
                   , seedInitialized : Bool
                   }
@@ -25,18 +27,20 @@ type Attack = BasicAttack
 
 type CombatState = InProgress | Won | Lost
 
-initCharacter : Bool -> Int -> Int -> Int -> Character
-initCharacter friendly hp attack defense =
+initCharacter : String -> Bool -> Int -> Int -> Int -> Character
+initCharacter name friendly hp attack defense =
     { totalHP = hp
     , currentHP = hp
     , attack = attack
     , defense = defense
     , friendly = friendly
+    , name = name
     }
 
 initGame : Game
-initGame = { player = initCharacter True 100 10 10
-           , enemy = initCharacter False 50 10 10
+initGame = { player = initCharacter "Skuld" True 100 10 10
+           , enemy = initCharacter "Goblin" False 50 10 10
+           , events = []
            , seed = Random.initialSeed 0 -- make types happy; not used
            , seedInitialized = False
            }
@@ -58,29 +62,42 @@ update (time, attack) model =
     model |> Dice.ensureSeed time
           |> doPlayerAttack attack
           |> doEnemyAttack
+          |> trimEvents
 
-doAttack : Random.Seed -> Attack -> Character -> Character -> (Character, Random.Seed)
+doAttack : Random.Seed -> Attack -> Character -> Character -> (String, Character, Random.Seed)
 doAttack seed attack attacker defender =
-    if alive attacker
-       then let (roll, newSeed) = Dice.basicRoll seed
-                damage = max 0 (roll + attacker.attack - defender.defense + 5)
-                updatedHP = defender.currentHP - damage
-            in ({ defender | currentHP <- updatedHP }, newSeed)
-       else (defender, seed)
+    let (roll, newSeed) = Dice.basicRoll seed
+        damage = max 0 (roll + attacker.attack - defender.defense + 5)
+        updatedHP = defender.currentHP - damage
+        message = attacker.name ++ " attacks " ++ defender.name ++ " for "
+                        ++ (toString damage) ++ " damage"
+    in (message, { defender | currentHP <- updatedHP }, newSeed)
 
 doPlayerAttack : Attack -> Game -> Game
 doPlayerAttack attack model =
-    let (updatedEnemy, newSeed) =
-            doAttack model.seed attack model.player model.enemy
-    in { model | enemy <- updatedEnemy
-               , seed <- newSeed }
+    if alive model.player
+       then
+            let (message, updatedEnemy, newSeed) =
+                    doAttack model.seed attack model.player model.enemy
+            in { model | enemy <- updatedEnemy
+                       , events <- message :: model.events
+                       , seed <- newSeed }
+       else model
 
 doEnemyAttack : Game -> Game
 doEnemyAttack model =
-    let (updatedPlayer, newSeed) =
-            doAttack model.seed BasicAttack model.enemy model.player
-    in { model | player <- updatedPlayer
-               , seed <- newSeed }
+    if alive model.enemy
+        then
+            let (message, updatedPlayer, newSeed) =
+                    doAttack model.seed BasicAttack model.enemy model.player
+            in { model | player <- updatedPlayer
+                       , events <- message :: model.events
+                       , seed <- newSeed }
+        else model
+
+trimEvents : Game -> Game
+trimEvents game =
+    { game | events <- List.take 8 game.events }
 
 -- SIGNALS
 
@@ -117,7 +134,7 @@ view game =
         [ Element.show (combatState game)
         , Element.flow Element.right
               [ characterView game.enemy
-              , Element.show "Event log here"
+              , Element.flow Element.down (List.map Element.show game.events)
               , characterView game.player
               ]
         , Input.button (Signal.message attack.address BasicAttack) "Attack"
