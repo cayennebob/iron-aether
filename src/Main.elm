@@ -1,3 +1,5 @@
+module Main where
+
 import Color
 import Graphics.Element as Element exposing (Element)
 import Graphics.Input as Input
@@ -64,7 +66,8 @@ update (time, attack) game =
          |> doEnemyAttack
          |> trimEvents
 
-doAttack : Random.Seed -> Attack -> Character -> Character -> (String, Character, Random.Seed)
+doAttack : Random.Seed -> Attack -> Character -> Character -> 
+          (String, Character, Random.Seed)
 doAttack seed attack attacker defender =
     let (roll, newSeed) = Dice.basicRoll seed
         damage = max 0 (roll + attacker.attack - defender.defense + 5)
