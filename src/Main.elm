@@ -1,6 +1,6 @@
 module Main where
 
-{-| Module doc goes here -}
+{-| Module doc goes here. Or does it? -}
 
 import Color
 import Graphics.Element as Element exposing (Element)
