@@ -1,10 +1,13 @@
 module Main where
 
+{-| Module doc goes here -}
+
 import Color
 import Graphics.Element as Element exposing (Element)
 import Graphics.Input as Input
 import Random
 import Time exposing (Time)
+import List
 
 import Dice
 
@@ -16,6 +19,7 @@ type alias Character = { totalHP : Int
                        , defense : Int
                        , friendly : Bool
                        , name : String
+                       , abilities : List Ability
                        }
 
 type alias Game = { player : Character
@@ -25,7 +29,15 @@ type alias Game = { player : Character
                   , seedInitialized : Bool
                   }
 
-type Attack = BasicAttack
+type Ability = BasicAttack
+            | Retreat
+
+abilityName : Ability -> String
+abilityName ability = 
+    case ability of
+      BasicAttack -> "Basic Attack"
+      Retreat -> "Retreat"
+
 
 type CombatState = InProgress | Won | Lost
 
@@ -37,12 +49,13 @@ initCharacter name friendly hp attack defense =
     , defense = defense
     , friendly = friendly
     , name = name
+    , abilities = [ BasicAttack , Retreat ]
     }
 
 initGame : Game
 initGame = { player = initCharacter "Skuld" True 100 10 10
            , enemy = initCharacter "Goblin" False 50 10 10
-           , events = []
+           , events = [""]
            , seed = Random.initialSeed 0 -- make types happy; not used
            , seedInitialized = False
            }
@@ -59,14 +72,14 @@ combatState game =
 
 -- UPDATE
 
-update : (Time, Attack) -> Game -> Game
+update : (Time, Ability) -> Game -> Game
 update (time, attack) game =
     game |> Dice.ensureSeed time
          |> doPlayerAttack attack
          |> doEnemyAttack
          |> trimEvents
 
-doAttack : Random.Seed -> Attack -> Character -> Character -> 
+doAttack : Random.Seed -> Ability -> Character -> Character -> 
           (String, Character, Random.Seed)
 doAttack seed attack attacker defender =
     let (roll, newSeed) = Dice.basicRoll seed
@@ -76,7 +89,7 @@ doAttack seed attack attacker defender =
                         ++ (toString damage) ++ " damage"
     in (message, { defender | currentHP <- updatedHP }, newSeed)
 
-doPlayerAttack : Attack -> Game -> Game
+doPlayerAttack : Ability -> Game -> Game
 doPlayerAttack attack game =
     if alive game.player
        then
@@ -106,12 +119,12 @@ trimEvents game =
 
 game : Signal.Signal Game
 game =
-    attack.signal
+    abilityMail.signal
         |> Time.timestamp
         |> Signal.foldp update initGame
 
-attack : Signal.Mailbox Attack
-attack = Signal.mailbox BasicAttack
+abilityMail : Signal.Mailbox Ability
+abilityMail = Signal.mailbox BasicAttack
 
 main : Signal Element
 main =
@@ -133,12 +146,29 @@ characterView character =
 
 view : Game -> Element
 view game =
-    Element.flow Element.down
+    List.concat
+    [
         [ Element.show (combatState game)
         , Element.flow Element.right
-              [ characterView game.enemy
-              , Element.flow Element.down (List.map Element.show game.events)
-              , characterView game.player
-              ]
-        , Input.button (Signal.message attack.address BasicAttack) "Attack"
+            [ characterView game.enemy
+            , Element.flow Element.down (List.map Element.show game.events)
+            , characterView game.player
+            ]
         ]
+    ,
+        List.map abilityButton (.abilities game.player)
+    ]
+    |> Element.flow Element.down
+
+abilityButton : Ability -> Element
+abilityButton ability = 
+    Input.button 
+    (Signal.message abilityMail.address ability)
+    (abilityName ability)
+
+
+
+
+
+
+
