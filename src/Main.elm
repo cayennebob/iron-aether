@@ -15,8 +15,8 @@ import Dice
 
 -- MODEL
 
-type alias Character = { totalHP : Int
-                       , currentHP : Int
+type alias Character = { hpMax : Int
+                       , hp : Int
                        , attack : Int
                        , defense : Int
                        , friendly : Bool
@@ -30,6 +30,7 @@ type alias Game = { player : Character
                   , events : List String
                   , seed : Random.Seed
                   , seedInitialized : Bool
+                  , combatState : CombatState
                   }
 
 type Ability = BasicAttack
@@ -37,6 +38,7 @@ type Ability = BasicAttack
              | Retreat
              | Defend
              | Heal
+             | FightAgain
 
 abilityName : Ability -> String
 abilityName ability = 
@@ -45,37 +47,52 @@ abilityName ability =
       Retreat -> "Retreat"
       NoAction -> "Do Nothing"
       Defend -> "Defend"
+      Heal -> "Heal"
+      FightAgain -> "Fight Again!"
       _ -> "Unknown"
 
+abilityAvailable : Game -> Ability -> Bool
+abilityAvailable game ability =
+    case ability of
+      FightAgain -> game.combatState /= InProgress 
+          && (.hp game.player > 0)
+      BasicAttack -> game.combatState == InProgress 
+      Retreat -> game.combatState == InProgress 
+      Heal -> True
+      _ -> False
 
-type CombatState = InProgress | Won | Lost
+
+type CombatState = InProgress | Won | Lost | Draw
 
 initCharacter : String -> Bool -> Int -> Int -> Int -> Character
 initCharacter name friendly hp attack defense =
-    { totalHP = hp
-    , currentHP = hp
+    { hpMax = hp
+    , hp = hp
     , attack = attack
     , defense = defense
     , friendly = friendly
     , name = name
     , abilities = [ BasicAttack 
                   , Defend
-                  , NoAction 
+                  , Heal
                   , Retreat 
+                  , NoAction 
+                  , FightAgain
                   ]
     }
 
 initGame : Game
 initGame = { player = initCharacter "Skuld" True 100 10 10
-           , enemy = initCharacter "Goblin" False 90 10 10
-           , events = [""]
+           , enemy = initCharacter "Goblin" False 70 10 10
+           , events = ["Begin!"]
            , seed = Random.initialSeed 0 -- make types happy; not used
            , seedInitialized = False
+           , combatState = InProgress
            }
 
 alive : Character -> Bool
 alive char =
-    char.currentHP > 0
+    char.hp > 0
 
 combatState : Game -> CombatState
 combatState game =
@@ -92,60 +109,92 @@ update (time, ability) game =
     game |> Dice.ensureSeed time
          |> doPlayerAbility ability 
          |> doEnemyAbility 
+         |> updateCombatState 
          |> trimEvents
 
 
 doPlayerAbility : Ability -> Game -> Game
 doPlayerAbility ability game =
-  if not <| alive game.player then game else
+  if abilityAvailable game ability |> not then game else
   let
-  (seed', message, player', enemy') =
-  doAbility game.seed ability game.player game.enemy 
+  (game', message, player', enemy') =
+  doAbility game ability game.player game.enemy 
   in
-  {game | player <- player'
+  { game' | player <- player'
         , enemy <- enemy'
-        , seed <- seed' 
         , events <- message :: game.events
         }
 
 doEnemyAbility : Game -> Game
 doEnemyAbility game =
-  if not <| alive game.enemy then game else
+  if game.combatState /= InProgress then game else
   let
-  (seed', message, enemy', player') =
-  doAbility game.seed BasicAttack game.enemy game.player 
+  (game', message, enemy', player') =
+  doAbility game BasicAttack game.enemy game.player 
   in
-  { game | player <- player'
+  { game' | player <- player'
          , enemy <- enemy'
-         , seed <- seed'
          , events <- message :: game.events
          }
 
 
-doAbility : Random.Seed -> Ability -> Character -> Character ->
-            (Random.Seed, String, Character, Character)
-doAbility seed ability actor target =
+doAbility : Game -> Ability -> Character -> Character ->
+            (Game, String, Character, Character)
+doAbility game ability actor target =
   case ability of 
-    BasicAttack -> doBasicAttack seed actor target
-    _ -> (seed, actor.name ++ " does nothing", actor, target)
+    BasicAttack -> doBasicAttack game actor target
+    FightAgain -> doFightAgain game
+    Heal -> doHeal game actor target
+    _ -> (game, actor.name ++ " does nothing", actor, target)
 
-doBasicAttack : Random.Seed -> Character -> Character ->
-            (Random.Seed, String, Character, Character)     
-doBasicAttack seed actor target =
+doBasicAttack : Game -> Character -> Character ->
+            (Game, String, Character, Character)     
+doBasicAttack game actor target =
   let 
-  (roll, seed') = Dice.basicRoll seed
+  (roll, seed') = Dice.basicRoll game.seed
   damage = max 0 (roll + actor.attack - target.defense + 5)
   actor' = actor
-  target' = { target | currentHP <- target.currentHP - damage }
+  target' = { target | hp <- target.hp - damage }
   message = actor.name ++ " attacks " ++ target.name 
             ++ " for " ++ (toString damage) ++ " damage"
   in
-  (seed', message , actor' , target')
+  ({game|seed<-seed'}, message , actor' , target')
+
+doFightAgain : Game -> (Game, String, Character, Character)
+doFightAgain game =
+    let 
+    state' = InProgress
+    enemy' = initCharacter "Goblin" False 70 10 10
+    in
+    ({game|combatState <- state'}, "A new combat begins!", game.player, enemy')
+
+doHeal : Game -> Character -> Character ->
+         (Game, String, Character, Character)
+doHeal game actor target =
+    let 
+    healAmt = 10
+    actor' = {actor| hp <- min (actor.hp+healAmt) actor.hpMax}
+    message = actor.name ++ " heals " ++ (toString healAmt) ++ " damage"
+    in
+    (game , message , actor', target)
+
+updateCombatState : Game -> Game
+updateCombatState game = 
+    if game.combatState /= InProgress then game else
+    let 
+    pcDead = .hp game.player < 0
+    npcDead = .hp game.enemy < 0
+    state' = if | pcDead && npcDead -> Draw
+                | pcDead -> Lost
+                | npcDead -> Won
+                | otherwise -> InProgress
+    in
+    {game| combatState <- state'}
 
 
 trimEvents : Game -> Game
 trimEvents game =
-    { game | events <- List.take 8 game.events }
+    { game | events <- List.take 12 game.events }
 
 
 
@@ -158,7 +207,7 @@ game =
         |> Signal.foldp update initGame
 
 abilityMail : Signal.Mailbox Ability
-abilityMail = Signal.mailbox BasicAttack
+abilityMail = Signal.mailbox BasicAttack  -- BasicAttack is the default
 
 main : Signal Element
 main =
@@ -168,10 +217,31 @@ main =
 
 -- VIEW
 
-hpBar : Character -> Element
-hpBar character =
-    -- TODO: actual bar
-    Element.show (character.currentHP, character.totalHP)
+
+view : Game -> Element
+view game =
+    Element.flow Element.down
+    [ menuButtons game
+    , Element.show game.combatState
+    , Element.flow Element.right
+      [ characterView game.player
+      , Element.flow Element.down (List.map Element.show game.events)
+      , characterView game.enemy
+      ]
+    ]
+
+menuButtons : Game -> Element
+menuButtons game =
+    List.filterMap (maybeAbilityButton game) (.abilities game.player)
+        |> Element.flow Element.right
+
+maybeAbilityButton : Game -> Ability -> Maybe Element
+maybeAbilityButton game ability = 
+    if abilityAvailable game ability then
+    Input.button 
+    (Signal.message abilityMail.address ability)
+    (abilityName ability) |> Just
+    else Nothing
 
 characterView : Character -> Element
 characterView character =
@@ -180,25 +250,10 @@ characterView character =
         , hpBar character
         ]
 
-view : Game -> Element
-view game =
-    [ List.map abilityButton (.abilities game.player)
-        |> Element.flow Element.right
-    , Element.show (combatState game)
-    , Element.flow Element.right
-      [ characterView game.enemy
-      , Element.flow Element.down (List.map Element.show game.events)
-      , characterView game.player
-      ]
-    ]
-    |> Element.flow Element.down
-
-abilityButton : Ability -> Element
-abilityButton ability = 
-    Input.button 
-    (Signal.message abilityMail.address ability)
-    (abilityName ability)
-
+hpBar : Character -> Element
+hpBar character =
+    -- TODO: actual bar
+    Element.show (character.hp, character.hpMax)
 
 
 
