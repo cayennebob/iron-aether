@@ -1,4 +1,4 @@
-module Main where
+module Battle where
 
 {-| Module doc goes here. Or does it? -}
 
