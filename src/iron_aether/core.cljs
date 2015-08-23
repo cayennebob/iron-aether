@@ -3,12 +3,6 @@
               [om.core :as om :include-macros true]
               [sablono.core :refer-macros [html]]))
 
-(enable-console-print!)
-
-(println battle/something)
-
-;; define your app data so that it doesn't get over-written on reload
-
 (defonce app-state (atom {:name nil
                           :battle nil}))
 
@@ -40,3 +34,7 @@
   app-view
   app-state
   {:target (. js/document (getElementById "app"))})
+
+; debugging
+
+(enable-console-print!)
