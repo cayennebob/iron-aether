@@ -20,28 +20,28 @@
                                     "test-resources/public/js/compiled"
                                     "target"]
 
+  ;; avoid running tests twice
+  :profiles {:test {:builds {:test {:notify-command []}}}}
+
   :cljsbuild {:test-commands {"unit" ["phantomjs" "test-resources/public/js/compiled/iron_aether.js"]}
-              :builds [{:id "dev"
-                        :source-paths ["src"]
-                        :figwheel true
-                        :compiler {:main iron-aether.core
-                                   :asset-path "js/compiled/out"
-                                   :output-to "resources/public/js/compiled/iron_aether.js"
-                                   :output-dir "resources/public/js/compiled/out"
-                                   :source-map-timestamp true }}
-                       {:id "release"
-                        :source-paths ["src"]
-                        :compiler {:output-to "resources/public/js/compiled/iron_aether.js"
-                                   :main iron-aether.core
-                                   :optimizations :advanced
-                                   :pretty-print false}}
-                       {:id "test"
-                        :source-paths ["src" "test"]
-                        :notify-command ["phantomjs" "test-resources/public/js/compiled/iron_aether.js"]
-                        :compiler {:main iron-aether.run-all-tests
-                                   :asset-path "js/compiled/out"
-                                   :output-to "test-resources/public/js/compiled/iron_aether.js"
-                                   :output-dir "test-resources/public/js/compiled/out"
-                                   :source-map-timestamp true}}]}
+              :builds {:dev {:source-paths ["src"]
+                             :figwheel true
+                             :compiler {:main iron-aether.core
+                                        :asset-path "js/compiled/out"
+                                        :output-to "resources/public/js/compiled/iron_aether.js"
+                                        :output-dir "resources/public/js/compiled/out"
+                                        :source-map-timestamp true }}
+                       :release {:source-paths ["src"]
+                                 :compiler {:output-to "resources/public/js/compiled/iron_aether.js"
+                                            :main iron-aether.core
+                                            :optimizations :advanced
+                                            :pretty-print false}}
+                       :test {:source-paths ["src" "test"]
+                              :notify-command ["phantomjs" "test-resources/public/js/compiled/iron_aether.js"]
+                              :compiler {:main iron-aether.run-all-tests
+                                         :asset-path "js/compiled/out"
+                                         :output-to "test-resources/public/js/compiled/iron_aether.js"
+                                         :output-dir "test-resources/public/js/compiled/out"
+                                         :source-map-timestamp true}}}}
 
   :figwheel {:server-port 3429})
