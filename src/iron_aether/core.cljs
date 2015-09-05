@@ -5,10 +5,11 @@
 
 (defonce app-state (atom app/initial-state))
 
-(om/root
-  view-app/app-view
-  app-state
-  {:target (. js/document (getElementById "app"))})
+(if-let [target (. js/document (getElementById "app"))] ;; so tests don't error
+  (om/root
+    view-app/app-view
+    app-state
+    {:target target}))
 
 ; debugging
 
