@@ -6,19 +6,18 @@
 
 ;; views
 
-(defn maybe-ability-button-view
+(defn ability-button-view
   [{:keys [battle ability]} owner]
   (reify
     om/IRender
     (render [_]
-      (when ((-> ability battle/abilities :is-available-fn) battle)
-        (html
-          [:button
-           {:onClick (fn []
-                       (om/transact! battle
-                                     #((-> ability battle/abilities :fn) % :player :enemy))
-                       (om/transact! battle battle/enemy-turn))}
-           (-> ability battle/abilities :name)])))))
+      (html
+        [:button
+         {:onClick (fn []
+                     (om/transact! battle
+                                   #((-> ability battle/abilities :fn) % :player :enemy))
+                     (om/transact! battle battle/enemy-turn))}
+         (-> ability battle/abilities :name)]))))
 
 (defn menu-buttons-view
   [battle owner]
@@ -26,9 +25,9 @@
     om/IRender
     (render [_]
       (html [:div {:style {:display "flex" :flex-direction "row"}}
-             (om/build-all maybe-ability-button-view
+             (om/build-all ability-button-view
                            (map #(array-map :battle battle :ability %)
-                                (-> battle :player :abilities)))]))))
+                                (battle/available-abilities battle)))]))))
 
 (defn combat-state-view
   [battle owner]

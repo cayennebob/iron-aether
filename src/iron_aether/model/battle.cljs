@@ -1,4 +1,4 @@
-(ns iron-aether.model.battle
+(ns ^:figwheel-always iron-aether.model.battle
   (:require [iron-aether.model.dice :as dice]))
 
 ;; state etc.
@@ -70,3 +70,13 @@
   (if (-> battle :enemy alive?)
     (do-basic-attack battle :enemy :player)
     battle))
+
+(defn available-abilities
+  "abilities currently available to the player"
+  ; in the future this will take an additional argument for the character, but
+  ; we don't know how multiple chararacters will be modeled/identified yet
+  [battle]
+  (->> battle
+       :player
+       :abilities
+       (filter #((-> % abilities :is-available-fn) battle))))
