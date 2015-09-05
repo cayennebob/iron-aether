@@ -1,4 +1,8 @@
 (defproject iron-aether "0.1.0-SNAPSHOT"
+  :description "A (currently?) (extremely) simple RPG"
+  :url "https://github.com/cayennebob/iron-aether"
+  :license {:name "BSD 3-clause"}
+
   :dependencies [[org.clojure/clojure "1.7.0"]
                  [org.clojure/clojurescript "1.7.48"]
                  [org.clojure/core.async "0.1.346.0-17112a-alpha"]
