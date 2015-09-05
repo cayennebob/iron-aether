@@ -1,4 +1,4 @@
-(ns iron-aether.dice)
+(ns iron-aether.model.dice)
 
 (defn basic-roll
   "Roll two D10s and sum the result"
