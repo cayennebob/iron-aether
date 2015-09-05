@@ -16,7 +16,8 @@
                                     "test-resources/public/js/compiled"
                                     "target"]
 
-  :cljsbuild {:builds [{:id "dev"
+  :cljsbuild {:test-commands {"unit" ["phantomjs" "test-resources/public/js/compiled/iron_aether.js"]}
+              :builds [{:id "dev"
                         :source-paths ["src"]
                         :figwheel true
                         :compiler {:main iron-aether.core
